@@ -40,7 +40,7 @@ end)
 -- Check Distance from the shops.
 --------------------------------------------------------------------------------
 Citizen.CreateThread(function()
-  Wait(10000)
+  -- Wait(10000)
   OpenShop()
   DokusMenu.CreateMenu('StoreMenu', 'Store Menu', '')
   DokusMenu.SetSubTitle('StoreMenu', 'General Store')
