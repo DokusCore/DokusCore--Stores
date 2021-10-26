@@ -5,18 +5,28 @@ description 'DokusCore Stores'
 author 'http://DokusCore.com'
 fx_version "adamant"
 games {"rdr3"}
-version '1.0.1 BETA'
+version '1.2.0'
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
-client_scripts { '[ Core ]/[ Client ]/*.lua' }
+client_scripts { '[ Core ]/[ Client ]/*.lua', '@DokusCore/[ Core ]/[ System ]/[ Menu ]/DokusMenu.lua' }
 server_scripts { '@mysql-async/lib/MySQL.lua', '[ Core ]/[ Server ]/*.lua' }
 shared_script {
-  'Config.lua',
-  '@DokusCore/Config.lua',
-  '@DokusCore/[ Core ]/[ System ]/Callbacks.lua',
-  '@DokusCore/[ Core ]/[ Server ]/[ Data ]/DBTables.lua',
-  '@DokusCore/[ Core ]/[ System ]/Shared.lua',
-  '@DokusCore/[ Core ]/[ System ]/[ Dependencies ]/DokusMenu.lua',
+  '@DokusCore/[ Core ]/[ System ]/CBSystem.lua',
+  '@DokusCore/[ Configs ]/[ Core ]/Core.lua',
+  '@DokusCore/[ Core ]/[ System ]/Languinator.lua',
+  '@DokusCore/[ Configs ]/[ Modules ]/Stores.lua',
+  '@DokusCore/[ Core ]/[ System ]/[ Language ]/bg.lua',
+  '@DokusCore/[ Core ]/[ System ]/[ Language ]/de.lua',
+  '@DokusCore/[ Core ]/[ System ]/[ Language ]/dk.lua',
+  '@DokusCore/[ Core ]/[ System ]/[ Language ]/en.lua',
+  '@DokusCore/[ Core ]/[ System ]/[ Language ]/es.lua',
+  '@DokusCore/[ Core ]/[ System ]/[ Language ]/fr.lua',
+  '@DokusCore/[ Core ]/[ System ]/[ Language ]/gr.lua',
+  '@DokusCore/[ Core ]/[ System ]/[ Language ]/it.lua',
+  '@DokusCore/[ Core ]/[ System ]/[ Language ]/nl.lua',
+  '@DokusCore/[ Core ]/[ System ]/[ Language ]/pl.lua',
+  '@DokusCore/[ Core ]/[ System ]/[ Language ]/pt.lua',
+  '@DokusCore/[ Core ]/[ System ]/[ Language ]/ru.lua'
 }
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------

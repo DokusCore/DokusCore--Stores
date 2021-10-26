@@ -1,35 +1,35 @@
 --------------------------------------------------------------------------------
 ---------------------------------- DokusCore -----------------------------------
 --------------------------------------------------------------------------------
-AliveNPCs = {}
-InRange = false
-MenuOpen = false
-MenuPage = nil
-PromptShop = nil
-Location = nil
-OpenShopGroup = GetRandomIntInRange(0, 0xffffff)
+Loc, InArea, InRange = nil, false, false
+local Steam, CharID = nil, nil
+local PluginReady = false
+PromptStore, AliveNPCs = nil, {}
+OpenStoreGroup = GetRandomIntInRange(0, 0xffffff)
+Low, MenuOpen, MenuPage = string.lower, false, nil
+Items, Valutas, Consumables, Tools, Minerals = {}, {}, {}, {}, {}
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
--- Spawn Store NPCs and Map Blips
+-- Create all the map blips and spawn the NPCs on the map
 --------------------------------------------------------------------------------
 CreateThread(function()
-  local Data = TSC('DokusCore:S:Core:DB:GetAll', { DB.Stores.GetAll })
-  for k,v in pairs(Data) do
-    local Coords = ConvertCoords(v.NPC)
-    SpawnStoreNPC(v.Hash, Coords, v.Heading)
-  end
+  if (_Modules.Stores) then
+    for k,v in pairs(_Stores.Zones) do
+      local blip = N_0x554d9d53f696d002(1664425300, v.Coords)
+      SetBlipSprite(blip, 1475879922, 1)
+  		SetBlipScale(blip, 0.2)
+      Citizen.InvokeNative(0x9CB1A1623062F402, blip, 'General Store')
+    end
 
-  for k,v in pairs(Data) do
-    local Coords = ConvertCoords(v.NPC)
-    local blip = N_0x554d9d53f696d002(1664425300, Coords)
-    SetBlipSprite(blip, 1475879922, 1)
-		SetBlipScale(blip, 0.2)
-    Citizen.InvokeNative(0x9CB1A1623062F402, blip, v.Store..' Store')
+    for k,v in pairs(_Stores.NPCs) do
+      SpawnStoreNPC(v.Hash, v.Coords, v.Heading)
+    end
   end
 end)
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 -- Delete all NPCs when the resource stops
+-----------------------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 AddEventHandler('onResourceStop', function(resourceName)
   if (GetCurrentResourceName() ~= resourceName) then return end
@@ -37,30 +37,34 @@ AddEventHandler('onResourceStop', function(resourceName)
 end)
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
--- Check Distance from the shops.
+-- Check players distance from the Stores
 --------------------------------------------------------------------------------
-Citizen.CreateThread(function()
-  -- Wait(10000)
-  OpenShop()
-  DokusMenu.CreateMenu('StoreMenu', 'Store Menu', '')
-  DokusMenu.SetSubTitle('StoreMenu', 'General Store')
-  DokusMenu.CreateMenu('BuyPage', 'Buying Items')
-  DokusMenu.SetSubTitle('BuyPage', 'General Store')
-  DokusMenu.CreateMenu('SellPage', 'Selling Items')
-  DokusMenu.SetSubTitle('SellPage', 'General Store')
-  DokusMenu.CreateMenu('ManageMenu', 'Store Manager')
-  DokusMenu.SetSubTitle('ManageMenu', 'Owner Menu')
+CreateThread(function()
+  -- First check if the core is ready to pass data
+  if (_Modules.Banking) then
+    local Ready = TSC('DokusCore:Core:System:IsCoreReady')
+    TriggerEvent('DokusCore:Stores:RegisterMenu')
+    while not Ready do Wait(1000) end
+    while Ready do Wait(1000)
+      for k,v in pairs(_Stores.Zones) do
+        local Dist = GetDistance(v.Coords)
+        if ((Loc == nil) and (Dist <= 7)) then Loc = v.ID end
+        if (Loc == v.ID) then
 
-  local Data = TSC('DokusCore:S:Core:DB:GetAll', { DB.Stores.GetAll })
-  while true do Wait(1000)
-    for k, v in pairs(Data) do
-      local Coords = ConvertCoords(v.Coords)
-      local IsClose = IsClose(Coords)
-      if Location == nil and IsClose then Location = string.lower(v.Store) end
-      if Location == string.lower(v.Store) then
-        if not IsClose and InRange then InRange = false Location = nil OpenMenu = false MenuPage = nil end
-        if IsClose and not InRange then Location = string.lower(v.Store) InRange = true
-          TriggerEvent('DokusCore:Stores:C:StartScript')
+          -- When in range and leaving the area
+          if ((Dist > 7) and (InArea)) then
+            Loc, InArea = nil, false
+            PromptStore = nil
+            OpenStoreGroup = GetRandomIntInRange(0, 0xffffff)
+            Items = {}
+          end
+
+          -- When not in range and entering the area
+          if ((Dist <= 7) and not (InArea)) then
+            InArea = true
+            GetAllItems()
+            TriggerEvent('DokusCore:Stores:CheckByNPC')
+          end
         end
       end
     end
@@ -68,188 +72,101 @@ Citizen.CreateThread(function()
 end)
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
--- Check when backspace is used.
+-- Check players distance from the NPC
 --------------------------------------------------------------------------------
-RegisterNetEvent('DokusCore:Stores:C:BackCheck')
-AddEventHandler('DokusCore:Stores:C:BackCheck', function()
+RegisterNetEvent('DokusCore:Stores:CheckByNPC')
+AddEventHandler('DokusCore:Stores:CheckByNPC', function()
+  local CheckByNPC = true
+  while CheckByNPC do Wait(100)
+    for k,v in pairs(_Stores.NPCs) do
+      if ((Loc == nil) or (v.ID == nil)) then break end
+      if (Low(Loc) == Low(v.ID)) then
+        local Dist = GetDistance(v.Coords)
+        -- When the player gets in the range of the NPC
+        if ((Dist <= v.ActRadius) and not InRange) then
+          InRange = true
+          TriggerEvent('DokusCore:Stores:StartStore')
+        end
+        -- when the player leave the range of the NPC
+        if ((Dist > v.ActRadius) and InRange) then
+          CheckByNPC = false Reset()
+        end
+      end
+    end
+  end
+end)
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-- Start Banking code when user is in range
+--------------------------------------------------------------------------------
+RegisterNetEvent('DokusCore:Stores:StartStore')
+AddEventHandler('DokusCore:Stores:StartStore', function()
+  OpenShop()
+  TriggerEvent('DokusCore:Stores:CheckByNPC')
+  while InRange do Wait(0)
+    local StoreGroupName  = CreateVarString(10, 'LITERAL_STRING', "Shop")
+    PromptSetActiveGroupThisFrame(OpenStoreGroup, StoreGroupName)
+    if PromptHasHoldModeCompleted(PromptShop) then
+      MenuOpen = true MenuPage = 'StoreMenu'
+      DokusMenu.OpenMenu('StoreMenu')
+      TriggerEvent('DokusCore:Stores:BackSpace')
+      local DokusPage = DokusMenu.IsMenuOpened
+      while MenuOpen do Wait(0)
+        if DokusPage('StoreMenu') then StoreMenu() end
+        if DokusPage('ManageMenu') then ManageMenu() end
+        if DokusPage('BuyPage') then BuyPage() end
+        if DokusPage('SellPage') then SellPage() end
+
+        if DokusPage('BuyConsumablePage') then BuyConsumablePage() end
+        if DokusPage('BuyMineralsPage') then BuyMineralsPage() end
+        if DokusPage('BuyValutasPage') then BuyValutasPage() end
+        if DokusPage('BuyToolsPage') then BuyToolsPage() end
+        if DokusPage('BuyItemsPage') then BuyItemsPage() end
+
+        if DokusPage('SellConsumablePage') then SellConsumablePage() end
+        if DokusPage('SellMineralsPage') then SellMineralsPage() end
+        if DokusPage('SellValutasPage') then SellValutasPage() end
+        if DokusPage('SellToolsPage') then SellToolsPage() end
+        if DokusPage('SellItemsPage') then SellItemsPage() end
+      end
+      Wait(2000)
+    end
+  end
+end)
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-- When menu is open let users use backspace to toggle the last menu
+--------------------------------------------------------------------------------
+RegisterNetEvent('DokusCore:Stores:BackSpace')
+AddEventHandler('DokusCore:Stores:BackSpace', function()
+  local Close = DokusMenu.CloseMenu
+  local Open  = DokusMenu.OpenMenu
   while MenuOpen do Wait(0)
     if IsControlJustPressed(0, _Keys['BACKSPACE']) then
-        if MenuPage == 'StoreMenu' then DokusMenu.CloseMenu() MenuPage = nil MenuOpen = false
-        elseif MenuPage == 'BuyPage' then DokusMenu.OpenMenu('StoreMenu') MenuPage = 'StoreMenu'
-        elseif MenuPage == 'SellPage' then DokusMenu.OpenMenu('StoreMenu') MenuPage = 'StoreMenu'
-        elseif MenuPage == 'ManageMenu' then DokusMenu.OpenMenu('StoreMenu') MenuPage = 'StoreMenu'
-        end
-      end
-  end
-end)
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
-local Warning = false
-RegisterNetEvent('DokusCore:Stores:C:StartScript')
-AddEventHandler('DokusCore:Stores:C:StartScript', function()
-  while InRange do Wait(0)
-    local ShopGroupName  = CreateVarString(10, 'LITERAL_STRING', "Shop")
-    PromptSetActiveGroupThisFrame(OpenShopGroup, ShopGroupName)
-    if PromptHasHoldModeCompleted(PromptShop) then
-      DokusMenu.OpenMenu('StoreMenu')
-      if not MenuOpen then
-        MenuOpen = true MenuPage = 'StoreMenu'
-        TriggerEvent('DokusCore:Stores:C:BackCheck')
-        local User   = TSC('DokusCore:S:Core:GetCoreUserData')
-        local Items  = TSC('DokusCore:S:Core:DB:GetAll', { DB.Items.GetAll })
-        local Stores = TSC('DokusCore:S:Core:DB:GetAll', { DB.Stores.GetAll })
-        local Stocks  = TSC('DokusCore:C:Core:DB:GetStore', { DB.Stores.GetStore, Location })[1][1]
-        local Encode = json.decode(Stocks.Stock)
+      -- Main Menus
+      if (MenuPage == 'StoreMenu') then Close() Reset() end
+      if (MenuPage == 'ManageMenu') then Open('StoreMenu') end
 
-        while MenuOpen do Wait(0)
-          local DokusPage = DokusMenu.IsMenuOpened
-          if DokusPage('StoreMenu') then
-            local BuyItem  = DokusMenu.Button('Buy Items')
-            local SellItem = DokusMenu.Button('Sell Items')
-            local Manager = DokusMenu.Button('Manage Store')
-            if BuyItem then MenuPage = 'BuyPage' DokusMenu.OpenMenu('BuyPage') end
-            if SellItem then MenuPage = 'SellPage' DokusMenu.OpenMenu('SellPage') end
-            if Manager then MenuPage = 'ManageMenu' DokusMenu.OpenMenu('ManageMenu') end
-          elseif DokusPage('BuyPage') then
-            -- Set the store
-            local Item, Store = false, nil
-            for k,v in pairs(Stores) do if (string.lower(v.Store) == Location) then Store = Location end end
-            -- Set the items of the store
-            for k,v in pairs(Items) do
-              local VT, SD, BW, TW = v.Valentine, v.Saint, v.Blackwater, v.Tumbleweed
-              local RD, AR, ST = v.Rhodes, v.Armadillo, v.Strawberry
+      -- Buy page menus
+      if (MenuPage == 'BuyPage') then Open('StoreMenu') end
+      if (MenuPage == 'BuyConsumablePage') then Open('BuyPage') end
+      if (MenuPage == 'BuyMineralsPage') then Open('BuyPage') end
+      if (MenuPage == 'BuyValutasPage') then Open('BuyPage') end
+      if (MenuPage == 'BuyToolsPage') then Open('BuyPage') end
+      if (MenuPage == 'BuyItemsPage') then Open('BuyPage') end
 
-              if ((BW == 1) and Location == 'blackwater') then
-                for i,p in pairs(Encode) do
-                  local Button = DokusMenu.Button(v.Name, p.Stock.."               "..'$'..v.bPrice)
-                  if Button then BuyCurrentItem(Store, User.Steam, User.CharID, v.Item, v.Name, v.Type, v.bPrice, v.Amount, v.Limit) end
-                end
-              end
-
-              if ((VT == 1) and Location == 'valentine') then
-                for i,p in pairs(Encode) do
-                  if (v.Item == p.Item) then
-                    local Button = DokusMenu.Button(v.Name, p.Stock.."               "..'$'..v.bPrice)
-                    if Button then BuyCurrentItem(Store, User.Steam, User.CharID, v.Item, v.Name, v.Type, v.bPrice, v.Amount, v.Limit) end
-                  end
-                end
-              end
-
-              if ((SD == 1) and Location == 'saint denis') then
-                for i,p in pairs(Encode) do
-                  local Button = DokusMenu.Button(v.Name, p.Stock.."               "..'$'..v.bPrice)
-                  if Button then BuyCurrentItem(Store, User.Steam, User.CharID, v.Item, v.Name, v.Type, v.bPrice, v.Amount, v.Limit) end
-                end
-              end
-
-              if ((TW == 1) and Location == 'tumbleweed') then
-                for i,p in pairs(Encode) do
-                  local Button = DokusMenu.Button(v.Name, p.Stock.."               "..'$'..v.bPrice)
-                  if Button then BuyCurrentItem(Store, User.Steam, User.CharID, v.Item, v.Name, v.Type, v.bPrice, v.Amount, v.Limit) end
-                end
-              end
-
-              if ((RD == 1) and Location == 'rhodes') then
-                for i,p in pairs(Encode) do
-                  local Button = DokusMenu.Button(v.Name, p.Stock.."               "..'$'..v.bPrice)
-                  if Button then BuyCurrentItem(Store, User.Steam, User.CharID, v.Item, v.Name, v.Type, v.bPrice, v.Amount, v.Limit) end
-                end
-              end
-
-              if ((AR == 1) and Location == 'armadillo') then
-                for i,p in pairs(Encode) do
-                  local Button = DokusMenu.Button(v.Name, p.Stock.."               "..'$'..v.bPrice)
-                  if Button then BuyCurrentItem(Store, User.Steam, User.CharID, v.Item, v.Name, v.Type, v.bPrice, v.Amount, v.Limit) end
-                end
-              end
-
-              if ((ST == 1) and Location == 'strawberry') then
-                for i,p in pairs(Encode) do
-                  local Button = DokusMenu.Button(v.Name, p.Stock.."               "..'$'..v.bPrice)
-                  if Button then BuyCurrentItem(Store, User.Steam, User.CharID, v.Item, v.Name, v.Type, v.bPrice, v.Amount, v.Limit) end
-                end
-              end
-            end
-          elseif DokusPage('SellPage') then
-            -- Set the store
-            local Item, Store = false, nil
-            for k,v in pairs(Stores) do if (string.lower(v.Store) == Location) then Store = Location end end
-            -- Set the items of the store
-            for k,v in pairs(Items) do
-              local VT, SD, BW, TW = v.Valentine, v.Saint, v.Blackwater, v.Tumbleweed
-              local RD, AR, ST = v.Rhodes, v.Armadillo, v.Strawberry
-              if ((BW == 1) and Location == 'blackwater') then
-                local Button = DokusMenu.Button(v.Name, v.Amount.."               "..'$'..v.sPrice)
-                if Button then SellCurrentItem(Store, User.Steam, User.CharID, v.Item, v.Name, v.Type, v.sPrice, v.Amount, v.Limit) end
-              end
-
-              if ((VT == 1) and Location == 'valentine') then
-                local Button = DokusMenu.Button(v.Name, v.Amount.."               "..'$'..v.sPrice)
-                if Button then SellCurrentItem(Store, User.Steam, User.CharID, v.Item, v.Name, v.Type, v.sPrice, v.Amount, v.Limit) end
-              end
-
-              if ((SD == 1) and Location == 'saint denis') then
-                local Button = DokusMenu.Button(v.Name, v.Amount.."               "..'$'..v.sPrice)
-                if Button then SellCurrentItem(Store, User.Steam, User.CharID, v.Item, v.Name, v.Type, v.sPrice, v.Amount, v.Limit) end
-              end
-
-              if ((TW == 1) and Location == 'tumbleweed') then
-                local Button = DokusMenu.Button(v.Name, v.Amount.."               "..'$'..v.sPrice)
-                if Button then SellCurrentItem(Store, User.Steam, User.CharID, v.Item, v.Name, v.Type, v.sPrice, v.Amount, v.Limit) end
-              end
-
-              if ((RD == 1) and Location == 'rhodes') then
-                local Button = DokusMenu.Button(v.Name, v.Amount.."               "..'$'..v.sPrice)
-                if Button then SellCurrentItem(Store, User.Steam, User.CharID, v.Item, v.Name, v.Type, v.sPrice, v.Amount, v.Limit) end
-              end
-
-              if ((AR == 1) and Location == 'armadillo') then
-                local Button = DokusMenu.Button(v.Name, v.Amount.."               "..'$'..v.sPrice)
-                if Button then SellCurrentItem(Store, User.Steam, User.CharID, v.Item, v.Name, v.Type, v.sPrice, v.Amount, v.Limit) end
-              end
-
-              if ((ST == 1) and Location == 'strawberry') then
-                local Button = DokusMenu.Button(v.Name, v.Amount.."               "..'$'..v.sPrice)
-                if Button then SellCurrentItem(Store, User.Steam, User.CharID, v.Item, v.Name, v.Type, v.sPrice, v.Amount, v.Limit) end
-              end
-            end
-          elseif DokusPage('ManageMenu') then
-            local Buy  = DokusMenu.Button('Buy Store')
-            local Sell = DokusMenu.Button('Sell Store')
-            local tOWner = DokusMenu.Button('Transer Ownership')
-            local Stock = DokusMenu.Button('Manage Stock')
-
-            if not Warning then
-              Warning = true
-              Note('These features are in the making, and will be released in a later version', 'TopRight', 5000)
-            end
-          end
-          DokusMenu.Display()
-        end
-      end
+      -- Sell page menus
+      if (MenuPage == 'SellPage') then Open('StoreMenu') end
+      if (MenuPage == 'SellConsumablePage') then Open('SellPage') end
+      if (MenuPage == 'SellMineralsPage') then Open('SellPage') end
+      if (MenuPage == 'SellValutasPage') then Open('SellPage') end
+      if (MenuPage == 'SellToolsPage') then Open('SellPage') end
+      if (MenuPage == 'SellItemsPage') then Open('SellPage') end
     end
   end
 end)
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
-CreateThread(function() Wait(0)
-  local Stocks = {}
-  local Stores = TSC('DokusCore:S:Core:DB:GetAll', { DB.Stores.GetAll })
-  for k,v in pairs(Stores) do
-    if (v.Stock == nil) then
-      local Items = TSC('DokusCore:S:Core:DB:GetAll', { DB.Items.GetAll })
-      for i,p in pairs(Items) do table.insert(Stocks, { Item = p.Item, Stock = math.floor((p.sLimit / 2)), Limit = p.sLimit }) end
-      local Encode = json.encode(Stocks)
-      local Index = { DB.Stores.SetStock, Encode, v.Store }
-      TSC('DokusCore:S:Core:DB:Stores:SetStock', Index)
-    end
-  end
-end)
-
-
-
-
-
 
 
 
