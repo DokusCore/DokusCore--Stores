@@ -1,84 +1,224 @@
 --------------------------------------------------------------------------------
----------------------------------- DokusCore -----------------------------------
+----------------------------------- DevDokus -----------------------------------
 --------------------------------------------------------------------------------
-function Notify(txt, pos, time)
-  TriggerEvent("pNotify:SendNotification", {
-    text = "<height='40' width='40' style='float:left; margin-bottom:10px; margin-left:20px;' />"..txt,
-    type = "success", timeout = time, layout = pos, queue = "right"
-  })
+----------------------- I feel a disturbance in the force ----------------------
+--------------------------------------------------------------------------------
+function FrameReady()
+  local Data = TCTCC('DokuCore:Sync:Get:CoreData')
+  return Data.FrameReady
 end
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
-function Reset()
-  MenuOpen = false
-  MenuPage = nil
-  InRange, InArea = false, false
-  PromptStore, Loc = nil, nil
-  OpenStoreGroup = GetRandomIntInRange(0, 0xffffff)
-  Items, Valutas, Consumables, Tools, Minerals = {}, {}, {}, {}, {}
+function UserInGame()
+  local Data = TCTCC('DokusCore:Sync:Get:UserData')
+  return Data.UserInGame
 end
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
-function SpawnStoreNPC(_, Coords, Heading)
-  local _ = GetHashKey(_)
-  while not HasModelLoaded(_) do RequestModel(_) Wait(1) end
-  local StoreNPCs = Citizen.InvokeNative(0xD49F9B0955C367DE, _, Coords, Heading, 0, 0, 0, Citizen.ResultAsInteger())
-  table.insert(AliveNPCs, StoreNPCs)
-  Citizen.InvokeNative(0x1794B4FCC84D812F, StoreNPCs, 1) -- SetEntityVisible
-  Citizen.InvokeNative(0x0DF7692B1D9E7BA7, StoreNPCs, 255, false) -- SetEntityAlpha
-  Citizen.InvokeNative(0x283978A15512B2FE, StoreNPCs, true) -- SetRandomOutfitVariation
-  Citizen.InvokeNative(0x7D9EFB7AD6B19754, StoreNPCs, true) -- FreezeEntityPosition
-  Citizen.InvokeNative(0xDC19C288082E586E, StoreNPCs, 1, 1) --SetEntityAsMissionEntity
-  Citizen.InvokeNative(0x919BE13EED931959, StoreNPCs, - 1) -- TaskStandStill
-  Citizen.InvokeNative(0xC80A74AC829DDD92, StoreNPCs, _) -- SET_PED_RELATIONSHIP_GROUP_HASH
-  Citizen.InvokeNative(0x4AD96EF928BD4F9A, StoreNPCs) -- SetModelAsNoLongerNeeded
+function NREntryErr() Notify("You've not inserted a number, but inserted text or nothing!!") end
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+function Open(Type) TriggerEvent('DokusCore:Stores:OpenStore', Type) end
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+function SetInArea()
+  print("Player Entered the Area")
+  InArea = true
+  TriggerEvent('DokusCore:Stores:CheckDistStore')
 end
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
-function OpenShop()
-  Citizen.CreateThread(function()
-    local str = "Open Store"
-    PromptShop = PromptRegisterBegin()
-    PromptSetControlAction(PromptShop, _Keys['LALT'])
+function SetOutArea()
+  print("Player Left the Area")
+  InArea, Loc = false, nil
+end
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+function SetInStore()
+  print("Player Entered the Store Area")
+  InStore = true
+  TriggerEvent('DokusCore:Stores:CheckDistNPC')
+end
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+function SetOutStore()
+  print("Player Left the Store Area")
+  InStore = false
+  Array = {}
+end
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+function SetNearNPC()
+  print("Player is near the npc")
+  NearNPC = true
+  TriggerEvent('DokusCore:Stores:ShowPrompt')
+end
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+function SetFarNPC()
+  print("Player Left the npc")
+  NearNPC = false
+  StoreInUse = false
+  Prompt, PromptGroup = nil, GetRandomIntInRange(0, 0xffffff)
+end
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+function PromptKey(Lang)
+  CreateThread(function()
+    local str = 'Buy'
+    Prompt_Buy = PromptRegisterBegin()
+    PromptSetControlAction(Prompt_Buy, _Keys['E'])
     str = CreateVarString(10, 'LITERAL_STRING', str)
-    PromptSetText(PromptShop, str)
-    PromptSetEnabled(PromptShop, true)
-    PromptSetVisible(PromptShop, true)
-    PromptSetHoldMode(PromptShop, true)
-    PromptSetGroup(PromptShop, OpenStoreGroup)
-    PromptRegisterEnd(PromptShop)
+    PromptSetText(Prompt_Buy, str)
+    PromptSetEnabled(Prompt_BuyPrompt_Buy, true)
+    PromptSetVisible(Prompt_Buy, true)
+    PromptSetHoldMode(Prompt_Buy, true)
+    PromptSetGroup(Prompt_Buy, PromptGroup)
+    PromptRegisterEnd(Prompt_Buy)
+
+    local str = 'Sell'
+    Prompt_Sell = PromptRegisterBegin()
+    PromptSetControlAction(Prompt_Sell, _Keys['F'])
+    str = CreateVarString(10, 'LITERAL_STRING', str)
+    PromptSetText(Prompt_Sell, str)
+    PromptSetEnabled(Prompt_Sell, true)
+    PromptSetVisible(Prompt_Sell, true)
+    PromptSetHoldMode(Prompt_Sell, true)
+    PromptSetGroup(Prompt_Sell, PromptGroup)
+    PromptRegisterEnd(Prompt_Sell)
+
+    local str = 'Manage'
+    Prompt_Manage = PromptRegisterBegin()
+    PromptSetControlAction(Prompt_Manage, _Keys['X'])
+    str = CreateVarString(10, 'LITERAL_STRING', str)
+    PromptSetText(Prompt_Manage, str)
+    PromptSetEnabled(Prompt_Manage, true)
+    PromptSetVisible(Prompt_Manage, true)
+    PromptSetHoldMode(Prompt_Manage, true)
+    PromptSetGroup(Prompt_Manage, PromptGroup)
+    PromptRegisterEnd(Prompt_Manage)
   end)
 end
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
-function GetDistance(Coords)
-  local Ped = PlayerPedId()
-  local pCoords = GetEntityCoords(Ped)
-  local Dist = Vdist(pCoords, Coords)
-  return Dist
+function ResetStore()
+  Radar(true)
+  ShowCores(true)
+  SetNuiFocus(false, false)
+  NearNPC = false
+  StoreInUse = false
+  Prompt = nil
+  PromptGroup = GetRandomIntInRange(0, 0xffffff)
+  Array_Inv, Array_Store = {}, {}
 end
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
-function GetAllItems()
+function CloseStore() SetNuiFocus(false, false) end
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+function IndexItemDataStore()
   local Data = TSC('DokusCore:Core:DBGet:Stores', { 'All' })
-  if (Data.Exist) then
-    for k,v in pairs(Data.Result) do
-      if (Low(v.Type) == 'consumable') then table.insert(Consumables, v) end
-      if (Low(v.Type) == 'item') then table.insert(Items, v) end
-      if (Low(v.Type) == 'valuta') then table.insert(Valutas, v) end
-      if (Low(v.Type) == 'tool') then table.insert(Tools, v) end
-      if (Low(v.Type) == 'mineral') then table.insert(Minerals, v) end
+  if (Data.Result == nil) then return end
+  for k,v in pairs(Data.Result) do
+    table.insert(Array_Store, {
+      Item = v.Item,
+      Name = v.Name,
+      Type = v.Type,
+      Desc = v.Description,
+      Buy  = v.Buy
+    })
+  end
+end
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+function IndexItemDataInv()
+  local Data  = TSC('DokusCore:Core:DBGet:Inventory', { 'User', 'All', { SteamID, CharID } })
+  local Items = TSC('DokusCore:Core:DBGet:Stores', { 'All' }).Result
+  if (Data.Result == nil) then return end
+  for k,i in pairs(Data.Result) do
+    for o,s in pairs(Items) do
+      if (Low(i.Item) == Low(s.Item)) then
+        table.insert(Array_Inv, {
+          Item = i.Item,
+          Name = s.Name,
+          Type = s.Type,
+          Desc = s.Description,
+          Sell = s.Sell
+        })
+      end
     end
   end
 end
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
--- Handling when an item is sold
---------------------------------------------------------------------------------
-function SellItem(Data)
-  print("Buying Item")
-  for k,v in pairs(Data) do
-    -- body...
-    print(k,v)
-  end
+function InsertInvItem(Item, Amount)
+  TriggerServerEvent('DokusCore:Core:DBIns:Inventory', { 'User', 'InsertItem', { SteamID, CharID, 'Consumable', Item, Amount } })
+  Message('Buy', Item, Amount)
 end
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+function AddInvItem(Item, Amount, Data)
+  TriggerServerEvent('DokusCore:Core:DBSet:Inventory', { 'User', 'AddItem', { SteamID, CharID, Item, Amount, Data[1].Amount } })
+  Message('Buy', Item, Amount)
+end
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+function DelInvItem(Item, Amount, Data)
+  TriggerServerEvent('DokusCore:Core:DBDel:Inventory', { 'User', 'Item', { SteamID, CharID, Item } })
+  Message('Sell', Item, Amount)
+end
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+function SetInvItem(Item, Amount, Data)
+  TriggerServerEvent('DokusCore:Core:DBSet:Inventory', { 'User', 'RemoveItem', { SteamID, CharID, Item, Amount, Data } })
+  Message('Sell', Item, Amount)
+end
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+function IndexAllData()
+  Array_Inv, Array_Store = {}, {}
+  IndexItemDataStore()
+  IndexItemDataInv()
+end
+
+function OpenStore() IndexAllData() end
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+function OpenStoreBuy()
+  StoreInUse = true
+  Array_Inv, Array_Store = {}, {}
+  IndexAllData()
+  TriggerEvent('DokusCore:Stores:OpenStore', 'Buy')
+end
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+function OpenStoreSell()
+  Array_Inv, Array_Store = {}, {}
+  IndexAllData()
+  StoreInUse = true
+  TriggerEvent('DokusCore:Stores:OpenStore', 'Sell')
+end
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+function Message(Type, Item, Amount)
+  if (Type == 'NotEnough') then Notify("You do not have this much in your inventory!") end
+  if (Type == 'InDev') then Notify('This Option is in developement!') Wait(5000) end
+  if (Type == 'NoMinNumber') then Notify("You can not use negative numbers!") end
+  if (Type == 'Buy') then Notify("You've bought "..Amount.." "..Item.."'s") end
+  if (Type == 'Sell') then Notify("You've sold "..Amount.." "..Item.."'s") end
+  if (Type == 'NoBuyMoney') then Notify("You've not enough money to buys this / these amount of items!") end
+end
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------

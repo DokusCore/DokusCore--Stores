@@ -1,32 +1,43 @@
 --------------------------------------------------------------------------------
 ----------------------------------- DevDokus -----------------------------------
 --------------------------------------------------------------------------------
-description 'DokusCore Stores'
+description 'DokusSync -- General Stores'
 author 'http://DokusCore.com'
 fx_version "adamant"
 games {"rdr3"}
-version '1.2.1'
+version '2.0.0'
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
-client_scripts { '[ Core ]/[ Client ]/*.lua', '@DokusCore/[ Core ]/[ System ]/[ Menu ]/DokusMenu.lua' }
-server_scripts { '@oxmysql/lib/MySQL.lua', '[ Core ]/[ Server ]/*.lua' }
+client_scripts {
+  '@DokusCore/[ Core ]/[ System ]/[ Client ]/CBSystem.lua',
+  '@DokusCore/[ Core ]/[ Client ]/[ Utilities ]/Natives.lua',
+  '@DokusCore/[ Core ]/[ Client ]/[ Utilities ]/Functions.lua',
+  '[ Core ]/[ Client ]/*.lua',
+}
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+server_scripts { '[ Core ]/[ Server ]/*.lua' }
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 shared_script {
-  '@DokusCore/[ Core ]/[ System ]/CBSystem.lua',
   '@DokusCore/[ Configs ]/[ Core ]/Core.lua',
-  '@DokusCore/[ Core ]/[ System ]/Languinator.lua',
   '@DokusCore/[ Configs ]/[ Modules ]/Stores.lua',
-  '@DokusCore/[ Core ]/[ System ]/[ Language ]/bg.lua',
-  '@DokusCore/[ Core ]/[ System ]/[ Language ]/de.lua',
-  '@DokusCore/[ Core ]/[ System ]/[ Language ]/dk.lua',
-  '@DokusCore/[ Core ]/[ System ]/[ Language ]/en.lua',
-  '@DokusCore/[ Core ]/[ System ]/[ Language ]/es.lua',
-  '@DokusCore/[ Core ]/[ System ]/[ Language ]/fr.lua',
-  '@DokusCore/[ Core ]/[ System ]/[ Language ]/gr.lua',
-  '@DokusCore/[ Core ]/[ System ]/[ Language ]/it.lua',
-  '@DokusCore/[ Core ]/[ System ]/[ Language ]/nl.lua',
-  '@DokusCore/[ Core ]/[ System ]/[ Language ]/pl.lua',
-  '@DokusCore/[ Core ]/[ System ]/[ Language ]/pt.lua',
-  '@DokusCore/[ Core ]/[ System ]/[ Language ]/ru.lua'
+  '@DokusCore/[ Core ]/[ System ]/[ Shared ]/CBSystem.lua'
+}
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+ui_page 'UI/index.html'
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+files {
+  'UI/fonts/*',
+  'UI/*',
+  'UI/images/*',
+  'UI/images/items/*',
+	'UI/index.html',
+	'UI/design.css',
+	'UI/script.js',
+	'UI/assets/*'
 }
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------

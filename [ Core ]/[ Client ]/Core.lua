@@ -1,209 +1,215 @@
 --------------------------------------------------------------------------------
----------------------------------- DokusCore -----------------------------------
+----------------------------------- DevDokus -----------------------------------
 --------------------------------------------------------------------------------
-Loc, InArea, InRange = nil, false, false
-Steam, CharID = nil, nil
-local PluginReady = false
-PromptStore, AliveNPCs = nil, {}
-OpenStoreGroup = GetRandomIntInRange(0, 0xffffff)
-Low, MenuOpen, MenuPage = string.lower, false, nil
-Items, Valutas, Consumables, Tools, Minerals = {}, {}, {}, {}, {}
+----------------------- I feel a disturbance in the force ----------------------
+--------------------------------------------------------------------------------
+SteamID, CharID, NPCs = nil, 0, {}
+Array_Inv, Array_Store = {}, {}
+InArea, InStore, NearNPC = false, false, false
+Loc, StoreInUse = nil, false
+Prompt_Buy, Prompt_Sell, Prompt_Manage = nil, nil, nil
+PromptGroup = GetRandomIntInRange(0, 0xffffff)
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
--- Create all the map blips and spawn the NPCs on the map
+-- Set the players data
+--------------------------------------------------------------------------------
+CreateThread(function()
+  while not FrameReady() do Wait(1000) end
+  while not UserInGame() do Wait(1000) end
+  local Data = TCTCC('DokusCore:Sync:Get:UserData')
+  SteamID, CharID = Data.SteamID, Data.CharID
+end)
+--------------------------------------------------------------------------------
+-- Set the NPCs and Blips on the map
+--------------------------------------------------------------------------------
+CreateThread(function()
+  if (_Modules.Trains) then
+    while not FrameReady() do Wait(1000) end
+    while not UserInGame() do Wait(1000) end
+    for k,v in pairs(_Stores.Stores) do if (v.Enabled) then SetBlip(v.Coords, 1475879922, Radius, 'General Store') end end
+    for k,v in pairs(_Stores.NPCs) do if (v.Enabled) then Tabi(NPCs, SpawnNPC(v.Hash, v.Coords, v.Heading)) end end
+  end
+end)
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-- Check databse for new items and insert the needed data.
+--------------------------------------------------------------------------------
+CreateThread(function()
+  while not FrameReady() do Wait(1000) end
+  while not UserInGame() do Wait(1000) end
+  local Data = TSC('DokusCore:Core:DBGet:Stores', { 'All' })
+  if (Data.Exist) then
+    local Items = TSC('DokusCore:Core:DBGet:Items', { 'All' })
+    TriggerServerEvent('DokusCore:Stores:CheckDatabase', nil, Data.Result, Items.Result)
+  end
+end)
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-- Event Trigger to Re-Check and ReSync the database items.
+--------------------------------------------------------------------------------
+RegisterNetEvent('DokusCore:Stores:ReSyncStoreItems', function()
+  local Data = TSC('DokusCore:Core:DBGet:Stores', { 'All' })
+  if (Data.Exist) then
+    local Items = TSC('DokusCore:Core:DBGet:Items', { 'All' })
+    TriggerServerEvent('DokusCore:Stores:CheckDatabase', false, Data.Result, Items.Result)
+  end
+end)
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-- Check the Distance between the player and the store general area.
 --------------------------------------------------------------------------------
 CreateThread(function()
   if (_Modules.Stores) then
-    for k,v in pairs(_Stores.Zones) do
-      local blip = N_0x554d9d53f696d002(1664425300, v.Coords)
-      SetBlipSprite(blip, 1475879922, 1)
-  		SetBlipScale(blip, 0.2)
-      Citizen.InvokeNative(0x9CB1A1623062F402, blip, 'General Store')
-    end
-
-    for k,v in pairs(_Stores.NPCs) do
-      SpawnStoreNPC(v.Hash, v.Coords, v.Heading)
+    while not FrameReady() do Wait(1000) end
+    while not UserInGame() do Wait(1000) end
+    while true do Wait(500)
+      for k,v in pairs(_Stores.Stores) do
+        local Dist = GetDistance(v.Coords)
+        if ((Loc == nil) and (Dist <= 30)) then Loc = Low(v.ID) end
+        if ((Loc ~= nill) and (Low(Loc) == Low(v.ID))) then
+          if ((Dist > 30) and (InArea)) then SetOutArea() end
+          if ((Dist <= 30) and not (InArea)) then SetInArea() end
+        end
+      end
     end
   end
+end)
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-- Check the Distance beteeen the player and the store itself.
+--------------------------------------------------------------------------------
+RegisterNetEvent('DokusCore:Stores:CheckDistStore', function()
+  while InArea do Wait(500)
+    for k,v in pairs(_Stores.Stores) do
+      local Dist = GetDistance(v.Coords)
+      if ((Loc ~= nill) and (Low(v.ID) == Low(Loc))) then
+        if ((Dist > v.Radius) and (InStore)) then SetOutStore() end
+        if ((Dist <= v.Radius) and not (InStore)) then SetInStore() end
+      end
+    end
+  end
+end)
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+RegisterNetEvent('DokusCore:Stores:CheckDistNPC', function()
+  while InStore do Wait(500)
+    for k,v in pairs(_Stores.NPCs) do
+      local Dist = GetDistance(v.Coords)
+      if ((Loc ~= nill) and (Low(v.ID) == Low(Loc))) then
+        if ((Dist > v.Radius) and (NearNPC)) then SetFarNPC() end
+        if ((Dist <= v.Radius) and not (NearNPC)) then SetNearNPC() end
+      end
+    end
+  end
+end)
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+RegisterNetEvent('DokusCore:Stores:ShowPrompt', function()
+  PromptKey()
+  while ((NearNPC) and not (StoreInUse)) do Wait(1)
+    local pName = CreateVarString(10, 'LITERAL_STRING', 'General Store')
+    PromptSetActiveGroupThisFrame(PromptGroup, pName)
+    local P = PromptHasHoldModeCompleted(Prompt_Buy)
+    local S = PromptHasHoldModeCompleted(Prompt_Sell)
+    local X = PromptHasHoldModeCompleted(Prompt_Manage)
+    if ((P) and not (StoreInUse)) then OpenStoreBuy() end
+    if ((S) and not (StoreInUse)) then OpenStoreSell() end
+    if ((X) and not (StoreInUse)) then Message('InDev') end
+  end
+end)
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+RegisterNetEvent('DokusCore:Stores:OpenStore', function(Type)
+  if (Low(Type) == 'buy') then
+    Radar(false)
+    ShowCores(false) Wait(1000)
+    SetNuiFocus(true, true)
+    SendNUIMessage({
+      Type = Type,
+      Display = true,
+      StoreData = Array_Store,
+      ShopName = 'General Store (Buy)'
+    })
+  elseif (Low(Type) == 'sell') then
+    Radar(false)
+    ShowCores(false) Wait(1000)
+    SetNuiFocus(true, true)
+    SendNUIMessage({
+      Type = Type,
+      Display = true,
+      StoreData = Array_Inv,
+      ShopName = 'Inventory (Sell)'
+    })
+  end
+
+end)
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+RegisterNetEvent('DokusCore:Stores:BuyItem', function(Item)
+  local Amount  = tonumber(Item.Result)
+  if (Amount == nil) then NREntryErr() ResetStore() IndexAllData() Open('Buy') return end
+  if (Amount < 0) then Message('NoMinNumber') ResetStore() IndexAllData() Open('Buy') return end
+  local PricePP  = Item.Data.Price
+  local NewPrice = (PricePP * Amount)
+  local Item     = Item.Data.Item
+
+
+  if (Amount >= 1) then
+    local User = TSC('DokusCore:Core:DBGet:Characters', { 'User', 'Single', { SteamID, CharID } })
+    local Money = User.Result[1].Money
+    if (NewPrice > Money) then Message('NoBuyMoney') ResetStore() IndexAllData() Open('Buy') return end
+    TriggerServerEvent('DokusCore:Core:DBSet:Characters', { 'Payment', { SteamID, CharID, (Money - NewPrice) } })
+    local Inv = TSC('DokusCore:Core:DBGet:Inventory', { 'User', 'Item', { SteamID, CharID, Item } })
+    if not (Inv.Exist) then InsertInvItem(Item, Amount) ResetStore() IndexAllData() Open('Buy') end
+    if (Inv.Exist) then AddInvItem(Item, Amount, Inv.Result) ResetStore() IndexAllData() Open('Buy') end
+  end
+end)
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+RegisterNetEvent('DokusCore:Stores:SellItem', function(Item)
+  local Amount = tonumber(Item.Result)
+  if (Amount == nil) then NREntryErr() ResetStore() IndexAllData() Open('Sell') return end
+  if (Amount < 0) then Message('NoMinNumber') ResetStore() IndexAllData() Open('Sell') return end
+  local PricePP  = Item.Data.Price
+  local NewPrice = (PricePP * Amount)
+  local Item = Item.Data.Item
+
+  if (Amount >= 1) then
+    local User = TSC('DokusCore:Core:DBGet:Characters', { 'User', 'Single', { SteamID, CharID } })
+    local Money = User.Result[1].Money
+    TriggerServerEvent('DokusCore:Core:DBSet:Characters', { 'Payment', { SteamID, CharID, (Money + NewPrice) } })
+    local Inv = TSC('DokusCore:Core:DBGet:Inventory', { 'User', 'Item', { SteamID, CharID, Item } })
+    if (Amount > Inv.Result[1].Amount) then Message('NotEnough') ResetStore() IndexAllData() Open('Sell') return end
+    if ((Inv.Result[1].Amount - Amount) == 0) then DelInvItem(Item, Amount) ResetStore() IndexAllData() Open('Sell') end
+    if ((Inv.Result[1].Amount - Amount > 0)) then SetInvItem(Item, Amount, Inv.Result[1].Amount) ResetStore() IndexAllData() Open('Sell') end
+  end
+end)
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-- Make sure the user sees his radar and metabolism again
+--------------------------------------------------------------------------------
+AddEventHandler('onResourceStart', function(R)
+  if (ResName() == R) then Radar(true) ShowCores(true) end
 end)
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 -- Delete all NPCs when the resource stops
------------------------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 AddEventHandler('onResourceStop', function(resourceName)
   if (GetCurrentResourceName() ~= resourceName) then return end
-  for k,v in pairs(AliveNPCs) do DeleteEntity(v) end
+  for k,v in pairs(NPCs) do DeleteEntity(v) end
 end)
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
--- Check players distance from the Stores
---------------------------------------------------------------------------------
-CreateThread(function()
-  -- First check if the core is ready to pass data
-  if (_Modules.Stores) then
-    local Ready = TSC('DokusCore:Core:System:IsCoreReady')
-    TriggerEvent('DokusCore:Stores:RegisterMenu')
-    while not Ready do Wait(1000) end
-    while Ready do Wait(1000)
-      for k,v in pairs(_Stores.Zones) do
-        local Dist = GetDistance(v.Coords)
-        if ((Loc == nil) and (Dist <= 7)) then Loc = v.ID end
-        if (Loc == v.ID) then
-
-          -- When in range and leaving the area
-          if ((Dist > 7) and (InArea)) then
-            Loc, InArea = nil, false
-            PromptStore = nil
-            OpenStoreGroup = GetRandomIntInRange(0, 0xffffff)
-            Items = {}
-          end
-
-          -- When not in range and entering the area
-          if ((Dist <= 7) and not (InArea)) then
-            InArea = true
-            GetAllItems()
-            TriggerEvent('DokusCore:Stores:CheckByNPC')
-          end
-        end
-      end
-    end
-  end
-end)
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
--- Check players distance from the NPC
---------------------------------------------------------------------------------
-RegisterNetEvent('DokusCore:Stores:CheckByNPC')
-AddEventHandler('DokusCore:Stores:CheckByNPC', function()
-  local CheckByNPC = true
-  while CheckByNPC do Wait(100)
-    for k,v in pairs(_Stores.NPCs) do
-      if ((Loc == nil) or (v.ID == nil)) then break end
-      if (Low(Loc) == Low(v.ID)) then
-        local Dist = GetDistance(v.Coords)
-        -- When the player gets in the range of the NPC
-        if ((Dist <= v.ActRadius) and not InRange) then
-          InRange = true
-          local Data = TSC('DokusCore:Core:GetCoreUserData')
-          Steam, CharID = Data.Steam, Data.CharID
-          TriggerEvent('DokusCore:Stores:StartStore')
-        end
-        -- when the player leave the range of the NPC
-        if ((Dist > v.ActRadius) and InRange) then
-          CheckByNPC = false Reset()
-        end
-      end
-    end
-  end
-end)
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
--- Start Banking code when user is in range
---------------------------------------------------------------------------------
-RegisterNetEvent('DokusCore:Stores:StartStore')
-AddEventHandler('DokusCore:Stores:StartStore', function()
-  OpenShop()
-  TriggerEvent('DokusCore:Stores:CheckByNPC')
-  while InRange do Wait(0)
-    local StoreGroupName  = CreateVarString(10, 'LITERAL_STRING', "Shop")
-    PromptSetActiveGroupThisFrame(OpenStoreGroup, StoreGroupName)
-    if PromptHasHoldModeCompleted(PromptShop) then
-      MenuOpen = true MenuPage = 'StoreMenu'
-      DokusMenu.OpenMenu('StoreMenu')
-      TriggerEvent('DokusCore:Stores:BackSpace')
-      local DokusPage = DokusMenu.IsMenuOpened
-      while MenuOpen do Wait(0)
-        if DokusPage('StoreMenu') then StoreMenu() end
-        if DokusPage('ManageMenu') then ManageMenu() end
-        if DokusPage('BuyPage') then BuyPage() end
-        if DokusPage('SellPage') then SellPage() end
-
-        if DokusPage('BuyConsumablePage') then BuyConsumablePage() end
-        if DokusPage('BuyMineralsPage') then BuyMineralsPage() end
-        if DokusPage('BuyValutasPage') then BuyValutasPage() end
-        if DokusPage('BuyToolsPage') then BuyToolsPage() end
-        if DokusPage('BuyItemsPage') then BuyItemsPage() end
-
-        if DokusPage('SellConsumablePage') then SellConsumablePage() end
-        if DokusPage('SellMineralsPage') then SellMineralsPage() end
-        if DokusPage('SellValutasPage') then SellValutasPage() end
-        if DokusPage('SellToolsPage') then SellToolsPage() end
-        if DokusPage('SellItemsPage') then SellItemsPage() end
-      end
-      Wait(2000)
-    end
-  end
-end)
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
--- When menu is open let users use backspace to toggle the last menu
---------------------------------------------------------------------------------
-RegisterNetEvent('DokusCore:Stores:BackSpace')
-AddEventHandler('DokusCore:Stores:BackSpace', function()
-  local Close = DokusMenu.CloseMenu
-  local Open  = DokusMenu.OpenMenu
-  while MenuOpen do Wait(0)
-    if IsControlJustPressed(0, _Keys['BACKSPACE']) then
-      -- Main Menus
-      if (MenuPage == 'StoreMenu') then Close() Reset() end
-      if (MenuPage == 'ManageMenu') then Open('StoreMenu') end
-
-      -- Buy page menus
-      if (MenuPage == 'BuyPage') then Open('StoreMenu') end
-      if (MenuPage == 'BuyConsumablePage') then Open('BuyPage') end
-      if (MenuPage == 'BuyMineralsPage') then Open('BuyPage') end
-      if (MenuPage == 'BuyValutasPage') then Open('BuyPage') end
-      if (MenuPage == 'BuyToolsPage') then Open('BuyPage') end
-      if (MenuPage == 'BuyItemsPage') then Open('BuyPage') end
-
-      -- Sell page menus
-      if (MenuPage == 'SellPage') then Open('StoreMenu') end
-      if (MenuPage == 'SellConsumablePage') then Open('SellPage') end
-      if (MenuPage == 'SellMineralsPage') then Open('SellPage') end
-      if (MenuPage == 'SellValutasPage') then Open('SellPage') end
-      if (MenuPage == 'SellToolsPage') then Open('SellPage') end
-      if (MenuPage == 'SellItemsPage') then Open('SellPage') end
-    end
-  end
-end)
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
-RegisterNetEvent('DokusCore:Stores:BuyItem')
-AddEventHandler('DokusCore:Stores:BuyItem', function(Data)
-  print("Buying an item")
 
 
-  -- First check if the player has enough money to buy the item
-  -- Then check the stock of the store (when player gets in range)
-  -- Then sell the item to the player and reduce the players money and store stock
 
 
-  local Item, Amount = Data.Item, 1
-
-  for k,v in pairs(Data) do
-    -- body...
-    print(k,v)
-  end
 
 
-  TSC('DokusCore:Core:DBSet:Inventory', { 'User', 'AddItem', { Steam, CharID, Item, Amount } })
-end)
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
-RegisterNetEvent('DokusCore:Stores:SellItem')
-AddEventHandler('DokusCore:Stores:SellItem', function(Data)
-  print("Selling an item")
-  -- local Item, Amount = Data.Item, 1
-  --
-  -- for k,v in pairs(Data) do
-  --   -- body...
-  --   print(k,v)
-  -- end
-  --
-  --
-  -- TSC('DokusCore:Core:DBSet:Inventory', { 'User', 'AddItem', { Steam, CharID, Item, Amount } })
-end)
+
+
+
 
 
 
