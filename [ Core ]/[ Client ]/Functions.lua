@@ -22,41 +22,35 @@ function Open(Type) TriggerEvent('DokusCore:Stores:OpenStore', Type) end
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 function SetInArea()
-  print("Player Entered the Area")
   InArea = true
   TriggerEvent('DokusCore:Stores:CheckDistStore')
 end
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 function SetOutArea()
-  print("Player Left the Area")
   InArea, Loc = false, nil
 end
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 function SetInStore()
-  print("Player Entered the Store Area")
   InStore = true
   TriggerEvent('DokusCore:Stores:CheckDistNPC')
 end
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 function SetOutStore()
-  print("Player Left the Store Area")
   InStore = false
   Array = {}
 end
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 function SetNearNPC()
-  print("Player is near the npc")
   NearNPC = true
   TriggerEvent('DokusCore:Stores:ShowPrompt')
 end
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 function SetFarNPC()
-  print("Player Left the npc")
   NearNPC = false
   StoreInUse = false
   Prompt, PromptGroup = nil, GetRandomIntInRange(0, 0xffffff)
