@@ -269,6 +269,51 @@ body {
     border-radius: 50%;
 }
 
+.quantity {
+    width: 100%;
+    text-align: center;
+    justify-content: center;
+    align-items: center;
+    display: flex;
+    flex-direction: row;
+}
+
+.quantity:hover {
+    transform: scale(1.05);
+  }
+  
+.quantity .number {
+    -webkit-appearance: none;
+    border: none;
+    text-align: center;
+    width: 32px;
+    padding-top: 2px;
+    font-size: 0.85vw;
+    color: rgba(255, 255, 255, 0.8);
+}
+   
+.btnquantity {
+	text-align: center;
+  width: 30px;
+  height: 30px;
+  /* background-color: #E1E8EE; */
+  /* border-radius: 6px; */
+  padding: 0;
+  border: none;
+  cursor: pointer;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.minus-btn img {
+  width: 100%;
+}
+
+.plus-btn img{
+  width: 80%;
+	 
+}
+
 @keyframes pulse1 {
     0% {
         transform: scale(0.95);

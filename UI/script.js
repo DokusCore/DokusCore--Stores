@@ -1,5 +1,6 @@
 var aType = null
 var aPrice = 0
+var aAmount = 0
 
 document.addEventListener('DOMContentLoaded', function() {
   $(".container").hide();
@@ -18,7 +19,36 @@ window.addEventListener("message", function(event) {
       $(".container").show();
       ShowShop(Data.ShopName, Data.StoreData)
     }
-  };
+  }
+  // /* Plus and minus signs calculation */
+  // if (Data.message == "add"){
+	// 	$( ".container" ).append(/*'<div class="card">' +
+	// 				'<div class="image-holder">' +
+	// 					'<img src="img/' + Data.item + '.png" onerror="this.src = \'img/default.png\'" alt="' + Data.label + '" style="width:100%;">' +
+	// 				'</div>' +
+	// 				'<div class="container" style=" max-width: 100%;overflow: hidden;text-overflow: ellipsis;">' +
+	// 					'<h4 style="white-space: nowrap; font-size: 0.8vw;"><b>' + Data.label + '<div class="price">' + Data.price + '$' + '</div>' + '</b></h4> ' +
+	// 					*/'<div class="quantity">' +
+	// 						'<div class="minus-btn btnquantity" name="' + Data.item + '" id="minus">' +
+	// 							'<img src="img/minus.png" alt="" />' +
+	// 						'</div>' +
+	// 						'<div class="number" name="name">1</div>' +
+	// 						'<div class="plus-btn btnquantity" name="' + Data.item + '" id="plus">' +
+	// 							'<img src="img/plus.png" alt="" />' +
+	// 						'</div>' +
+	// 					'</div>'/* +
+	// 					'<div class="purchase">' +
+  //
+	// 						'<div class="buy" name="' + Data.item + '">Kup</div>' +
+	// 					'</div>' +
+	// 				'</div>' +
+	// 			'</div>'*/);
+	// 	//prices[Data.item] = Data.price;
+	// 	maxes[Data.item] = 99;
+	// 	//zone = Data.loc;
+	// }
+  // //ends here//
+  ;
 });
 
 function ShowShop(ShopName, Items) {
@@ -76,9 +106,6 @@ function select(element) {
     $('#confirmation-container #confirm_title').text(item_name);
   };
 };
-
-
-
 
 function Action() {
   if (aType) {
@@ -153,6 +180,16 @@ function SwitchScreen() {
   };
 };
 
+function ClickPlus() {
+  aAmount = ( aAmount + 1 )
+  console.log('New Amount', aAmount);
+};
+
+function ClickMinus() {
+  aAmount = ( aAmount - 1 )
+  console.log('New Amount', aAmount);
+};
+
 
 // Close the store on ESC and BACKSPACE
 $(document).keyup(function(Data) {
@@ -164,3 +201,30 @@ $(document).keyup(function(Data) {
     $.post('http://DokusCore--Stores/CloseNUI', JSON.stringify({}));
   } else if (Code == 13) { Confirm() };
 });
+
+// /* Plus and minus signs calculation*/
+// $(".container").on("click", ".btnquantity", function() {
+//
+// 	var $button = $(this);
+// 	var $name = $button.attr('name')
+// 	var oldValue = $button.parent().find(".number").text();
+// 	if ($button.get(0).id == "plus") {
+// 		if (oldValue <  maxes[$name]){
+// 			var newVal = parseFloat(oldValue) + 1;
+// 		}else{
+// 			var newVal = parseFloat(oldValue);
+// 		}
+// 	} else {
+// 	// Don't allow decrementing below zero
+// 		if (oldValue > 1) {
+// 			var newVal = parseFloat(oldValue) - 1;
+// 		} else {
+// 			newVal = 1;
+// 		}
+// 	}
+// 	//$button.parent().parent().find(".price").text((prices[$name] * newVal) + "$");
+// 	$button.parent().find(".number").text(newVal);
+//
+// });
+//
+// // ends here //
