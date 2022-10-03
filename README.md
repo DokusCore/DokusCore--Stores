@@ -1,7 +1,7 @@
 ---
 <p align="center">
   <img width="600" height="200" src="https://user-images.githubusercontent.com/49053928/111937011-2e9b8080-8ac7-11eb-914a-a0d94380d611.gif"><br>
- <b>DokusCore Stores (v2.1.3)</b> - The place to be for all your goods!.
+ <b>DokusCore Stores (v2.1.4)</b> - The place to be for all your goods!.
 </p>
 
 ---
@@ -19,8 +19,11 @@ set up a DokusCore server, see the following video: [Installation video](https:/
 
 ---
 # Installation
-Simply extract the `DokusCore--Stores` into your `resources` folder, and <br>
-start it via `ensure DokusCore--Stores`.
+Simply extract the `DokusCore--Stores` into your `resources` folder, <br>
+and start it via `ensure DokusCore--Stores`. Then go to the Modules.lua <br>
+file of `DokusCore` itself and at `_Modules = { Stores }` set it to `true`. <br>
+If left to `false` the core will create its own character on ID 1 and not the <br>
+multi characters plugin.
 
 ---
 # Plugin Information
@@ -42,14 +45,14 @@ display correctly, you need to add them also to the item list of the inventory! 
 
 ---
 # Discord
-On our [Discord](https://discord.gg/dokuscore) you can find all Information about this <br>
+On our [Discord](https://discord.io/dokuscore) you can find all Information about this <br>
 project, feel free to join. Here you can also interact with other playing and testing<br>
 the Core, as well as giving your suggestions and opinions.
 
 ---
 # Searching for Developers
 Do you enjoy developing, and would you like to take part into the DokusCore<br>
-project ? Join our [Discord](https://discord.gg/dokuscore) and contact one of the Administrators.
+project ? Join our [Discord](https://discord.io/dokuscore) and contact one of the Administrators.
 
 ---
 # Future ideas for this plugin
